@@ -6,14 +6,14 @@ from discord.ui import Button, View
 # You will set these in Railway, not here.
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 REVIEWER_ROLE_ID = 1393293811286937761 # The role ID for your reviewers
-TICKET_CATEGORY_ID = 1393576700352401460 # <-- IMPORTANT: Replace 0 with the ID of the Discord category where tickets should be created
+TICKET_CATEGORY_ID = 0 # <-- IMPORTANT: Replace 0 with the ID of the Discord category where tickets should be created
 
 # Set up the bot's permissions (called "intents")
 intents = discord.Intents.default()
 intents.message_content = True
 
-# Create the bot object
-bot = discord.Client(intents=intents)
+# Create the bot object - CHANGED THIS LINE
+bot = discord.Bot(intents=intents)
 
 # --- The Button Class ---
 # This defines what happens when the "Claim" button is clicked
