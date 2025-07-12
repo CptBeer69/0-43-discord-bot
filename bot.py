@@ -20,12 +20,15 @@ app = Flask(__name__)
 @app.route('/new_application', methods=['POST'])
 def new_application():
     data = request.json
+    print(f"[FLASK] Received data from Zapier: {data}")
     bot.loop.create_task(post_application_message(data))
     return jsonify({"status": "success", "message": "Data received"}), 200
 
 async def post_application_message(data):
+    print("[BOT] post_application_message function started.")
     channel = bot.get_channel(APP_LOG_CHANNEL_ID)
     if not channel:
+        print(f"[ERROR] Could not find APP_LOG_CHANNEL_ID: {APP_LOG_CHANNEL_ID}")
         return
     
     embed = discord.Embed(
@@ -33,18 +36,24 @@ async def post_application_message(data):
         color=5793266
     )
     embed.add_field(name="**Discord ID**", value=str(data.get('user_id', 'N/A')), inline=False)
-    # Add other fields as needed from 'data'
     embed.add_field(name="**Character Name**", value=data.get('char_name', 'N/A'), inline=True)
     
-    await channel.send(embed=embed, view=ClaimButtonView())
+    try:
+        await channel.send(embed=embed, view=ClaimButtonView())
+        print("[BOT] Successfully sent application message to Discord.")
+    except Exception as e:
+        print(f"[ERROR] Failed to send message to Discord: {e}")
 
 # --- The "Claim" Button Logic ---
 class ClaimButtonView(View):
     def __init__(self):
         super().__init__(timeout=None)
 
-    @discord.ui.button(label="Claim Application", style=discord.ButtonStyle.success, custom_id="claim_button_final_v2")
-    async def claim_button_callback(self, interaction: discord.Interaction, button: Button):
+    @discord.ui.button(label="Claim Application", style=discord.ButtonStyle.success, custom_id="claim_button_final_v3")
+    # THE PARAMETER ORDER IS NOW CORRECTED ON THIS LINE
+    async def claim_button_callback(self, button: discord.ui.Button, interaction: discord.Interaction):
+        print(f"[BUTTON] Claim button pressed by: {interaction.user.name}")
+        
         # Acknowledge the interaction immediately
         await interaction.response.defer(ephemeral=True)
         
@@ -65,6 +74,11 @@ class ClaimButtonView(View):
             reviewer_role = guild.get_role(REVIEWER_ROLE_ID)
             category = guild.get_channel(TICKET_CATEGORY_ID)
             
+            if not category:
+                print(f"[ERROR] Could not find TICKET_CATEGORY_ID: {TICKET_CATEGORY_ID}")
+                await interaction.followup.send("Error: Ticket category not found. Please check configuration.", ephemeral=True)
+                return
+
             overwrites = {
                 guild.default_role: discord.PermissionOverwrite(read_messages=False),
                 reviewer_role: discord.PermissionOverwrite(read_messages=True, send_messages=True),
@@ -78,11 +92,10 @@ class ClaimButtonView(View):
             
             await ticket_channel.send(f"Ticket created for <@{applicant_id}> by {interaction.user.mention}. <@&{REVIEWER_ROLE_ID}>", embed=original_embed)
             await interaction.message.delete()
+            print("[BOT] Successfully created ticket and deleted original message.")
             await interaction.followup.send(f"Success! Ticket created: {ticket_channel.mention}", ephemeral=True)
 
         except Exception as e:
-            # --- ENHANCED ERROR LOGGING ---
-            # If any part of the process fails, this will run.
             print(f"[ERROR] An exception occurred during ticket creation: {e}")
             error_embed = discord.Embed(
                 title="Button Interaction Failed - Detailed Error",
@@ -92,7 +105,7 @@ class ClaimButtonView(View):
             error_embed.add_field(name="Error Details", value=f"```\n{e}\n```")
             if log_channel:
                 await log_channel.send(embed=error_embed)
-            await interaction.followup.send("An unexpected error occurred. The details have been logged for review.", ephemeral=True)
+            await interaction.followup.send("An unexpected error occurred. The details have been logged.", ephemeral=True)
 
 # --- Bot Start-up Logic ---
 @bot.event
